@@ -18,13 +18,16 @@ from django.contrib import admin
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 from lms.views import CourseViewSet, LessonListCreateView, LessonRetrieveUpdateDestroyView
+from user.views import PaymentViewSet
 
 router = DefaultRouter()
 router.register(r'courses', CourseViewSet)
+router.register(r'payments', PaymentViewSet)
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include(router.urls)),
     path('api/lessons/', LessonListCreateView.as_view(), name='lesson-list-create'),
     path('api/lessons/<int:pk>/', LessonRetrieveUpdateDestroyView.as_view(), name='lesson-detail'),
+    
 ]

@@ -1,7 +1,6 @@
 from django.db import models
 
 from django.contrib.auth.models import AbstractUser
-from lms.models import Course, Lesson
 
 
 class User(AbstractUser):
@@ -24,5 +23,5 @@ class Payment(models.Model):
     payment_date = models.DateTimeField()
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     payment_method = models.CharField(max_length=20, choices=PAYMENT_METHOD)
-    paid_course = models.ForeignKey(Course, null=True, blank=True, on_delete=models.CASCADE)
-    paid_lesson = models.ForeignKey(Lesson, null=True, blank=True, on_delete=models.CASCADE)
+    paid_course = models.ForeignKey('lms.Course', null=True, blank=True, on_delete=models.CASCADE)
+    paid_lesson = models.ForeignKey('lms.Lesson', null=True, blank=True, on_delete=models.CASCADE)

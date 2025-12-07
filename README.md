@@ -5,6 +5,7 @@ LMS
 
 ## Запуск проекта
 
+```bash
 # Установка зависимостей
 poetry install
 
@@ -15,7 +16,10 @@ poetry run python manage.py migrate
 poetry run python manage.py loaddata user/fixtures/payments.json
 
 # Запуск сервера разработки
-poetry run python manage.py runserverПроект доступен по адресу: `http://127.0.0.1:8000/`.
+poetry run python manage.py runserver
+```
+
+Проект доступен по адресу: `http://127.0.0.1:8000/`.
 
 ## Аутентификация и пользователи
 
@@ -45,3 +49,40 @@ poetry run python manage.py runserverПроект доступен по адре
   - детали/редактирование/удаление: `/api/lessons/<id>/`
 - Платежи: `/api/payments/`
 - Пользователи: `/api/users/user/`
+- Подписка на курсы: `/api/courses/<course_id>/subscribe/`
+
+## Дополнительные возможности
+
+### Валидация ссылок
+
+При создании и обновлении уроков проверяется, что поле `video_link` содержит только ссылки на YouTube (youtube.com, www.youtube.com, youtu.be, m.youtube.com). Ссылки на другие ресурсы будут отклонены.
+
+### Подписка на курсы
+
+Пользователи могут подписываться на обновления курсов:
+- `POST /api/courses/<course_id>/subscribe/` — подписка/отписка (переключатель).
+- При получении данных курса (`GET /api/courses/<id>/`) возвращается поле `is_subscribed`, показывающее статус подписки текущего пользователя.
+
+### Пагинация
+
+Списки курсов и уроков поддерживают пагинацию:
+- По умолчанию: 10 элементов на странице.
+- Параметры запроса:
+  - `?page=1` — номер страницы.
+  - `?page_size=20` — количество элементов на странице (максимум 50).
+
+### Тестирование
+
+Для запуска тестов:
+```bash
+poetry run python manage.py test lms.tests
+```
+
+Для проверки покрытия тестами:
+```bash
+poetry run coverage run --source='lms' manage.py test lms.tests
+poetry run coverage report
+poetry run coverage html -d coverage_report
+```
+
+Текущее покрытие кода тестами: **90%**.

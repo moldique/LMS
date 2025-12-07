@@ -21,7 +21,7 @@ from rest_framework_simplejwt.views import (
     TokenObtainPairView,
     TokenRefreshView,
 )
-from lms.views import CourseViewSet, LessonListCreateView, LessonRetrieveUpdateDestroyView
+from lms.views import CourseViewSet, LessonListCreateView, LessonRetrieveUpdateDestroyView, SubscriptionAPIView
 from user.views import PaymentViewSet
 
 router = DefaultRouter()
@@ -37,4 +37,6 @@ urlpatterns = [
     # JWT токены доступны без авторизации
     path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    path('api/courses/<int:course_id>/subscribe/', SubscriptionAPIView.as_view(), name='course-subscribe'),
+
 ]

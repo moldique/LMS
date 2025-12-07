@@ -17,3 +17,14 @@ class Lesson(models.Model):
     video_link = models.URLField()
     course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='lessons')
     owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='lesson')
+    
+    class Meta:
+        ordering = ['-id']  # Сортировка по ID для пагинации
+
+
+class Subscription(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='subscriptions')
+    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='subscriptions')
+    
+    class Meta:
+        unique_together = [['user', 'course']]

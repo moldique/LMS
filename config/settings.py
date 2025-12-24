@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'user',
     'lms',
+    'django_celery_beat',
 ]
 
 AUTH_USER_MODEL = 'user.User'
@@ -153,3 +154,27 @@ REST_FRAMEWORK = {
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# URL-адрес брокера сообщений
+CELERY_BROKER_URL = os.getenv('CELERY_BROKER_URL', 'redis://127.0.0.1:6379/0')
+
+# URL-адрес брокера результатов, также Redis  
+CELERY_RESULT_BACKEND = os.getenv('CELERY_RESULT_BACKEND', 'redis://127.0.0.1:6379/0')
+
+# Часовой пояс для работы Celery
+CELERY_TIMEZONE = TIME_ZONE 
+
+# Флаг отслеживания выполнения задач
+CELERY_TASK_TRACK_STARTED = True 
+
+# Максимальное время на выполнение  
+CELERY_TASK_TIME_LIMIT = 30 * 60
+
+# Для периодических задач
+CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
+
+# Настройки email
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+
+# Email по умолчанию
+DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'noreply@lms.com')

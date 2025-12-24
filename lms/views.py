@@ -7,12 +7,16 @@ from lms.models import Course, Lesson, Subscription
 from lms.serializers import CourseSerializer, LessonSerializer
 from lms.permissions import IsModeratorOrOwner
 from lms.paginators import CourseLessonPagination
+from lms.tasks import send_course_update_email
+from django.utils import timezone
+from datetime import timedelta
 
 class CourseViewSet(viewsets.ModelViewSet):
     queryset = Course.objects.all()
     serializer_class = CourseSerializer
     permission_classes = [IsModeratorOrOwner]
-    pagination_class = CourseLessonPagination 
+    pagination_class = CourseLessonPagination
+
 
     def get_queryset(self):
         
@@ -23,6 +27,13 @@ class CourseViewSet(viewsets.ModelViewSet):
     
     def perform_create(self, serializer):
         serializer.save(owner=self.request.user)
+    
+    def perform_update(self, serializer):
+        course = serializer.save()
+        subscriptions = Subscription.objects.filter(course=course)
+        
+        for subscription in subscriptions:
+            send_course_update_email.delay(course.id, subscription.user.id)
 
 
 class LessonListCreateView(ListCreateAPIView):
@@ -50,6 +61,18 @@ class LessonRetrieveUpdateDestroyView(RetrieveUpdateDestroyAPIView):
         if self.request.user.groups.filter(name='moderators').exists():
             return Lesson.objects.all()
         return Lesson.objects.filter(owner=self.request.user)
+    
+    def perform_update(self, serializer):
+        lesson = serializer.save()
+        course = serializer.save()
+
+        if course.update_at < timezone.now - timezone(hours=4):
+            course.save()
+        
+            subscriptions = Subscription.objects.filter(course=course)
+
+            for subscription in subscriptions:
+                send_course_update_email.delay(course.id, subscription.user.id)
 
 
 class SubscriptionAPIView(APIView):

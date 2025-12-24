@@ -8,6 +8,7 @@ class Course(models.Model):
     preview = models.ImageField(upload_to='course/', blank=True, null=True)
     description = models.TextField()
     owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='courses')
+    updated_at = models.DateTimeField(auto_now=True)
     
 
 class Lesson(models.Model):

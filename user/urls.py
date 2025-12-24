@@ -14,5 +14,5 @@ urlpatterns = [
     path('', include(router.urls)),  # Подключаем роутер для CRUD пользователей
     path('register/', UserRegistrationView.as_view(), name='user-register'),
 
-    path('payments/create/', PaymentCreateView.as_view(), name='payment-create'),
+    path('api/payments/create/', PaymentCreateView.as_view(), name='payment-create'),
 ]

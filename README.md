@@ -3,7 +3,119 @@ LMS
 
 Небольшое учебное API для управления курсами и уроками на Django + DRF.
 
-## Запуск проекта
+## Запуск проекта через Docker Compose
+
+### Требования
+
+- Docker и Docker Compose должны быть установлены
+- Файл `.env` должен быть создан на основе `.env.example`
+
+### Быстрый старт
+
+1. **Создайте файл `.env` на основе шаблона:**
+   ```bash
+   cp .env.example .env
+   ```
+
+2. **Заполните переменные окружения в файле `.env`** (особенно `SECRET_KEY`, `DB_PASSWORD`)
+
+3. **Запустите все сервисы:**
+   ```bash
+   docker-compose up -d
+   ```
+
+4. **Примените миграции:**
+   ```bash
+   docker-compose exec web python manage.py migrate
+   ```
+
+5. **Создайте суперпользователя (опционально):**
+   ```bash
+   docker-compose exec web python manage.py createsuperuser
+   ```
+
+Проект будет доступен по адресу: `http://127.0.0.1:8000/`
+
+### Сервисы в Docker Compose
+
+- **web** — Django приложение (порт 8000)
+- **db** — PostgreSQL база данных (порт 5432)
+- **redis** — Redis для Celery (порт 6379)
+- **celery** — Celery worker для выполнения асинхронных задач
+- **celery-beat** — Celery beat для выполнения периодических задач
+
+### Проверка работы сервисов
+
+**Проверка Django приложения:**
+```bash
+# Проверить логи
+docker-compose logs web
+
+# Проверить статус
+docker-compose ps web
+
+# Открыть в браузере
+http://127.0.0.1:8000/swagger/
+```
+
+**Проверка базы данных:**
+```bash
+# Подключиться к PostgreSQL
+docker-compose exec db psql -U lms -d lms
+
+# Проверить логи
+docker-compose logs db
+```
+
+**Проверка Redis:**
+```bash
+# Подключиться к Redis CLI
+docker-compose exec redis redis-cli ping
+# Должен вернуть: PONG
+
+# Проверить логи
+docker-compose logs redis
+```
+
+**Проверка Celery Worker:**
+```bash
+# Проверить логи
+docker-compose logs celery
+
+# Проверить статус
+docker-compose ps celery
+```
+
+**Проверка Celery Beat:**
+```bash
+# Проверить логи
+docker-compose logs celery-beat
+
+# Проверить статус
+docker-compose ps celery-beat
+```
+
+### Управление контейнерами
+
+```bash
+# Остановить все сервисы
+docker-compose down
+
+# Остановить и удалить volumes (очистить данные БД)
+docker-compose down -v
+
+# Пересобрать контейнеры после изменений
+docker-compose up -d --build
+
+# Просмотр логов всех сервисов
+docker-compose logs -f
+
+# Просмотр логов конкретного сервиса
+docker-compose logs -f web
+docker-compose logs -f celery
+```
+
+## Запуск проекта (локально без Docker)
 
 ```bash
 # Установка зависимостей
@@ -21,7 +133,7 @@ poetry run python manage.py runserver
 
 Проект доступен по адресу: `http://127.0.0.1:8000/`.
 
-## Настройка Celery и Redis
+## Настройка Celery и Redis (локальный запуск)
 
 Проект использует Celery для асинхронных задач и периодических заданий.
 

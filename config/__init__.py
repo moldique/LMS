@@ -4,4 +4,7 @@ eventlet.monkey_patch()
 
 from .celery import app as celery_app
 
-__all__ = ('celery_app',)
+# Алиас для Celery команды -A config
+celery = celery_app
+
+__all__ = ('celery_app', 'celery')

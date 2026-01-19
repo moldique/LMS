@@ -1,0 +1,49 @@
+name: Deploy
+
+on:
+  push:
+    branches: [develop]
+
+jobs:
+  test-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install Poetry
+        run: |
+          pip install poetry
+
+      - name: Install dependencies
+        run: |
+          poetry install --no-interaction --no-ansi
+
+      - name: Run tests
+        run: |
+          poetry run python manage.py test
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          port: ${{ secrets.SSH_PORT }}
+          script: |
+            cd /home/lmsuser/lms
+            git pull origin develop
+            poetry install --no-interaction --no-ansi
+            poetry run python manage.py migrate
+            poetry run python manage.py migrate django_celery_beat
+            poetry run python manage.py collectstatic --noinput
+            sudo systemctl restart lms
+            sudo systemctl restart lms-celery
+            sudo systemctl restart lms-celery-beat
+            sudo systemctl restart nginx

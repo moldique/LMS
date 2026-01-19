@@ -133,6 +133,53 @@ poetry run python manage.py runserver
 
 Проект доступен по адресу: `http://127.0.0.1:8000/`.
 
+## Настройка удаленного сервера
+
+Краткий чек-лист для продакшн-сервера:
+
+- Установите: Python, Poetry, PostgreSQL, Redis, Nginx, Git
+- Настройте пользователя для деплоя и SSH-ключи
+- Откройте порты: 22 (SSH), 80 (HTTP), 443 (HTTPS)
+- Настройте Gunicorn через `systemd` сервис `lms`
+- Настройте Celery worker и Celery Beat через `systemd` сервисы
+- Настройте Nginx как reverse proxy и отдачу `/static/` и `/media/`
+
+Пример проверки сервисов:
+```bash
+sudo systemctl status lms --no-pager
+sudo systemctl status lms-celery --no-pager
+sudo systemctl status lms-celery-beat --no-pager
+sudo systemctl status nginx --no-pager
+```
+
+## GitHub Actions: CI/CD
+
+Workflow запускается при `push` в ветку `develop`, прогоняет тесты и выполняет деплой.
+
+### Secrets для GitHub Actions
+
+Добавьте Secrets в репозиторий:
+
+- `SSH_HOST` — IP или домен сервера
+- `SSH_USER` — пользователь на сервере (например, `lmsuser`)
+- `SSH_KEY` — приватный SSH-ключ
+- `SSH_PORT` — порт SSH (обычно `22`)
+
+### Как работает деплой
+
+1. Делаете `git push` в ветку `develop`.
+2. Запускается workflow: установка зависимостей и тесты.
+3. После успешных тестов выполняется SSH-деплой на сервер:
+   - `git pull origin develop`
+   - `poetry install`
+   - `migrate`, `collectstatic`
+   - перезапуск `systemd` сервисов и `nginx`
+
+Проверка статуса на сервере:
+```bash
+sudo systemctl status lms --no-pager
+```
+
 ## Настройка Celery и Redis (локальный запуск)
 
 Проект использует Celery для асинхронных задач и периодических заданий.

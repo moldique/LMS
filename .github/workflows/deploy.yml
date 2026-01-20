@@ -2,11 +2,43 @@ name: Deploy
 
 on:
   push:
-    branches: [develop]
+    branches:
+      - "**"
 
 jobs:
-  test-and-deploy:
+  test:
     runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: lms_db
+          POSTGRES_USER: lms_user
+          POSTGRES_PASSWORD: lms_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U lms_user -d lms_db"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+
+    env:
+      SECRET_KEY: test
+      DEBUG: "True"
+      DB_NAME: lms_db
+      DB_USER: lms_user
+      DB_PASSWORD: lms_password
+      DB_HOST: 127.0.0.1
+      DB_PORT: 5432
+      CELERY_BROKER_URL: redis://127.0.0.1:6379/0
+      CELERY_RESULT_BACKEND: redis://127.0.0.1:6379/0
 
     steps:
       - name: Checkout
@@ -18,17 +50,20 @@ jobs:
           python-version: "3.13"
 
       - name: Install Poetry
-        run: |
-          pip install poetry
+        run: pip install poetry
 
       - name: Install dependencies
-        run: |
-          poetry install --no-interaction --no-ansi
+        run: poetry install --no-interaction --no-ansi
 
       - name: Run tests
-        run: |
-          poetry run python manage.py test
+        run: poetry run python manage.py test
 
+  deploy:
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.ref == 'refs/heads/develop'
+
+    steps:
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.0.3
         with:

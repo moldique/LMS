@@ -3,12 +3,20 @@ from rest_framework.filters import OrderingFilter
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from datetime import datetime
+from django.utils import timezone
+from django.db import transaction
+from decimal import Decimal, InvalidOperation
 
 from user.models import Payment, User
 from user.serializers import PaymentSerializer, UserSerializer, UserRegistrationSerializer
 from lms.models import Course
-from user.stripe_service import create_stripe_product, create_stripe_price, create_stripe_session
+from user.stripe_service import (
+    create_stripe_product,
+    create_stripe_price,
+    create_stripe_session,
+    cleanup_stripe_resources,
+    StripeServiceError,
+)
 
 
 class PaymentViewSet(viewsets.ModelViewSet):
@@ -66,32 +74,85 @@ class PaymentCreateView(APIView):
                 status=status.HTTP_404_NOT_FOUND
             )
         
-        amount_in_cents = int(float(amount) * 100)
+        try:
+            amount_decimal = Decimal(str(amount))
+        except (InvalidOperation, TypeError):
+            return Response(
+                {'error': 'Некорректное значение amount'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if amount_decimal <= 0:
+            return Response(
+                {'error': 'amount должен быть положительным числом'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        amount_in_cents = int(amount_decimal * 100)
         
-        product_id = create_stripe_product(course.name, course.description)
-        
-        price_id = create_stripe_price(product_id, amount_in_cents)
-        
-        base_url = request.build_absolute_uri('/')[:-1]
-        success_url = f"{base_url}/api/payments/success/"
-        cancel_url = f"{base_url}/api/payments/cancel/"
-        
-        session_data = create_stripe_session(price_id, success_url, cancel_url)
-        
-        payment = Payment.objects.create(
-            user=request.user,
-            payment_date=datetime.now(),
-            amount=amount,
-            payment_method='stripe',
-            paid_course=course,
-            stripe_product_id=product_id,
-            stripe_price_id=price_id,
-            stripe_session_id=session_data['id'],
-        )
+        product_id = None
+        price_id = None
+        session_id = None
+
+        try:
+            product_id = create_stripe_product(course.name, course.description)
+            price_id = create_stripe_price(product_id, amount_in_cents)
+
+            base_url = request.build_absolute_uri('/')[:-1]
+            success_url = f"{base_url}/api/users/payments/success/"
+            cancel_url = f"{base_url}/api/users/payments/cancel/"
+
+            session_data = create_stripe_session(price_id, success_url, cancel_url)
+            session_id = session_data['id']
+
+            with transaction.atomic():
+                payment = Payment.objects.create(
+                    user=request.user,
+                    payment_date=timezone.now(),
+                    amount=amount_decimal,
+                    payment_method='stripe',
+                    paid_course=course,
+                    stripe_product_id=product_id,
+                    stripe_price_id=price_id,
+                    stripe_session_id=session_id,
+                )
+        except StripeServiceError as exc:
+            cleanup_stripe_resources(
+                product_id=product_id,
+                price_id=price_id,
+                session_id=session_id,
+            )
+            return Response(
+                {'error': str(exc)},
+                status=status.HTTP_502_BAD_GATEWAY
+            )
+        except Exception:
+            cleanup_stripe_resources(
+                product_id=product_id,
+                price_id=price_id,
+                session_id=session_id,
+            )
+            return Response(
+                {'error': 'Не удалось создать платеж. Попробуйте позже.'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
         
         return Response({
             'payment_url': session_data['url'],
             'payment_id': payment.id,
         }, status=status.HTTP_201_CREATED)
-        
 
+
+class PaymentSuccessView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        return Response({'status': 'success'})
+
+
+class PaymentCancelView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        return Response({'status': 'cancel'})
+        

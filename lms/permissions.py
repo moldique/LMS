@@ -28,9 +28,8 @@ class IsModeratorOrOwner(permissions.BasePermission):
         is_moderator = request.user.groups.filter(name='moderators').exists()
 
         if is_moderator:
-            if request.method in ['GET', 'PUT', 'PATCH']:
-                return True
-            elif request.method == 'DELETE':
+            if request.method == 'DELETE':
                 return False
+            return True
         
         return obj.owner == request.user

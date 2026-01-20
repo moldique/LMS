@@ -14,14 +14,9 @@ def validate_youtube_only(value):
     parsed_url = urlparse(value)
     domain = parsed_url.netloc.lower()
     
-    # Разрешенные домены YouTube
-    allowed_domains = ['youtube.com', 'www.youtube.com', 'youtu.be', 'm.youtube.com']
-    
-    # Проверяем, что домен точно совпадает или заканчивается на разрешенный домен
-    is_youtube = any(
-        domain == allowed_domain or domain.endswith('.' + allowed_domain)
-        for allowed_domain in allowed_domains
-    )
+    # Разрешенные домены YouTube (только точные совпадения)
+    allowed_domains = {'youtube.com', 'www.youtube.com', 'm.youtube.com', 'youtu.be'}
+    is_youtube = domain in allowed_domains
     
     if not is_youtube:
         raise serializers.ValidationError(

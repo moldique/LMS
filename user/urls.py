@@ -5,7 +5,7 @@ from rest_framework_simplejwt.views import (
     TokenRefreshView,
 )
 
-from user.views import UserRegistrationView, UserViewSet, PaymentCreateView
+from user.views import UserRegistrationView, UserViewSet, PaymentCreateView, PaymentSuccessView, PaymentCancelView
 
 router = DefaultRouter()
 router.register(r'user', UserViewSet)
@@ -14,5 +14,7 @@ urlpatterns = [
     path('', include(router.urls)),  # Подключаем роутер для CRUD пользователей
     path('register/', UserRegistrationView.as_view(), name='user-register'),
 
-    path('api/payments/create/', PaymentCreateView.as_view(), name='payment-create'),
+    path('payments/create/', PaymentCreateView.as_view(), name='payment-create'),
+    path('payments/success/', PaymentSuccessView.as_view(), name='payment-success'),
+    path('payments/cancel/', PaymentCancelView.as_view(), name='payment-cancel'),
 ]

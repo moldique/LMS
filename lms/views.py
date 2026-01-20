@@ -66,7 +66,7 @@ class LessonRetrieveUpdateDestroyView(RetrieveUpdateDestroyAPIView):
         lesson = serializer.save()
         course = serializer.save()
 
-        if course.update_at < timezone.now - timezone(hours=4):
+        if course.updated_at < timezone.now() - timedelta(hours=4):
             course.save()
         
             subscriptions = Subscription.objects.filter(course=course)

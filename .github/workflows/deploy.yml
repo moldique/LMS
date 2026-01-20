@@ -1,0 +1,84 @@
+name: Deploy
+
+on:
+  push:
+    branches:
+      - "**"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: lms_db
+          POSTGRES_USER: lms_user
+          POSTGRES_PASSWORD: lms_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U lms_user -d lms_db"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+
+    env:
+      SECRET_KEY: test
+      DEBUG: "True"
+      DB_NAME: lms_db
+      DB_USER: lms_user
+      DB_PASSWORD: lms_password
+      DB_HOST: 127.0.0.1
+      DB_PORT: 5432
+      CELERY_BROKER_URL: redis://127.0.0.1:6379/0
+      CELERY_RESULT_BACKEND: redis://127.0.0.1:6379/0
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install Poetry
+        run: pip install poetry
+
+      - name: Install dependencies
+        run: poetry install --no-interaction --no-ansi
+
+      - name: Run tests
+        run: poetry run python manage.py test
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.ref == 'refs/heads/develop'
+
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          port: ${{ secrets.SSH_PORT }}
+          script: |
+            cd /home/lmsuser/lms
+            git pull origin develop
+            poetry install --no-interaction --no-ansi
+            poetry run python manage.py migrate
+            poetry run python manage.py migrate django_celery_beat
+            poetry run python manage.py collectstatic --noinput
+            sudo systemctl restart lms
+            sudo systemctl restart lms-celery
+            sudo systemctl restart lms-celery-beat
+            sudo systemctl restart nginx

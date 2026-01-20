@@ -2,6 +2,10 @@ import stripe
 from django.conf import settings
 
 
+class StripeServiceError(Exception):
+    """Ошибка взаимодействия со Stripe API."""
+
+
 def _get_stripe_api_key():
     """Получает API ключ Stripe из настроек"""
     if not stripe.api_key:
@@ -21,11 +25,15 @@ def create_stripe_product(course_name, course_description):
         str: ID продукта в Stripe
     """
     _get_stripe_api_key()
-    product = stripe.Product.create(
-        name=course_name,
-        description=course_description,
-    )
-    return product.id
+    try:
+        product = stripe.Product.create(
+            name=course_name,
+            description=course_description,
+        )
+        return product.id
+    except stripe.error.StripeError as exc:
+        message = getattr(exc, "user_message", None) or str(exc)
+        raise StripeServiceError(f"Не удалось создать продукт в Stripe: {message}") from exc
 
 
 def create_stripe_price(product_id, amount):
@@ -40,12 +48,16 @@ def create_stripe_price(product_id, amount):
         str: ID цены в Stripe
     """
     _get_stripe_api_key()
-    price = stripe.Price.create(
-        product=product_id,
-        unit_amount=amount,  # Сумма в копейках
-        currency='rub',  # Валюта - рубли
-    )
-    return price.id
+    try:
+        price = stripe.Price.create(
+            product=product_id,
+            unit_amount=amount,  # Сумма в копейках
+            currency='rub',  # Валюта - рубли
+        )
+        return price.id
+    except stripe.error.StripeError as exc:
+        message = getattr(exc, "user_message", None) or str(exc)
+        raise StripeServiceError(f"Не удалось создать цену в Stripe: {message}") from exc
 
 
 def create_stripe_session(price_id, success_url, cancel_url):
@@ -61,18 +73,45 @@ def create_stripe_session(price_id, success_url, cancel_url):
         dict: Объект сессии с полями 'id' и 'url'
     """
     _get_stripe_api_key()
-    session = stripe.checkout.Session.create(
-        payment_method_types=['card'],
-        line_items=[{
-            'price': price_id,
-            'quantity': 1,
-        }],
-        mode='payment',
-        success_url=success_url,
-        cancel_url=cancel_url,
-    )
-    return {
-        'id': session.id,
-        'url': session.url
-    }
+    try:
+        session = stripe.checkout.Session.create(
+            payment_method_types=['card'],
+            line_items=[{
+                'price': price_id,
+                'quantity': 1,
+            }],
+            mode='payment',
+            success_url=success_url,
+            cancel_url=cancel_url,
+        )
+        return {
+            'id': session.id,
+            'url': session.url
+        }
+    except stripe.error.StripeError as exc:
+        message = getattr(exc, "user_message", None) or str(exc)
+        raise StripeServiceError(f"Не удалось создать сессию оплаты Stripe: {message}") from exc
+
+
+def cleanup_stripe_resources(product_id=None, price_id=None, session_id=None):
+    """Best-effort очистка Stripe ресурсов, если что-то пошло не так."""
+    _get_stripe_api_key()
+
+    if session_id:
+        try:
+            stripe.checkout.Session.expire(session_id)
+        except stripe.error.StripeError:
+            pass
+
+    if price_id:
+        try:
+            stripe.Price.modify(price_id, active=False)
+        except stripe.error.StripeError:
+            pass
+
+    if product_id:
+        try:
+            stripe.Product.delete(product_id)
+        except stripe.error.StripeError:
+            pass
     

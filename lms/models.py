@@ -17,7 +17,7 @@ class Lesson(models.Model):
     preview = models.ImageField(upload_to='lesson/', blank=True, null=True)
     video_link = models.URLField()
     course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='lessons')
-    owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='lesson')
+    owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='lessons')
     
     class Meta:
         ordering = ['-id']  # Сортировка по ID для пагинации

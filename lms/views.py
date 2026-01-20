@@ -9,6 +9,7 @@ from lms.permissions import IsModeratorOrOwner
 from lms.paginators import CourseLessonPagination
 from lms.tasks import send_course_update_email
 from django.utils import timezone
+from django.db import transaction
 from datetime import timedelta
 
 class CourseViewSet(viewsets.ModelViewSet):
@@ -64,11 +65,14 @@ class LessonRetrieveUpdateDestroyView(RetrieveUpdateDestroyAPIView):
     
     def perform_update(self, serializer):
         lesson = serializer.save()
-        course = serializer.save()
-
-        if course.updated_at < timezone.now() - timedelta(hours=4):
-            course.save()
+        course = lesson.course
+        threshold = timezone.now() - timedelta(hours=4)
+        was_updated = Course.objects.filter(
+            id=course.id,
+            updated_at__lt=threshold,
+        ).update(updated_at=timezone.now())
         
+        if was_updated:
             subscriptions = Subscription.objects.filter(course=course)
 
             for subscription in subscriptions:
@@ -80,18 +84,21 @@ class SubscriptionAPIView(APIView):
     
     def post(self, request, course_id):
         user = request.user
+        try:
+            course_item = Course.objects.get(id=course_id)
+        except Course.DoesNotExist:
+            return Response({"detail": "Курс не найден"}, status=404)
         
-        course_item = Course.objects.get(id=course_id)
-        
-        subs_item = Subscription.objects.filter(user=user, course=course_item)
-        
-        if subs_item.exists():
+        with transaction.atomic():
+            subscription, created = Subscription.objects.get_or_create(
+                user=user,
+                course=course_item,
+            )
 
-            subs_item.delete()
-            message = 'подписка удалена'
-        else:
-
-            Subscription.objects.create(user=user, course=course_item)
-            message = 'подписка добавлена'
+            if created:
+                message = 'подписка добавлена'
+            else:
+                subscription.delete()
+                message = 'подписка удалена'
         
         return Response({"message": message})
